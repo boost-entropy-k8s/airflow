@@ -15,36 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
----
-package-name: apache-airflow-providers-github
-name: Github
-description: |
-    `GitHub <https://www.github.com/>`__
-versions:
-  - 1.0.3
-  - 1.0.2
-  - 1.0.1
-  - 1.0.0
-integrations:
-  - integration-name: Github
-    external-doc-url: https://www.github.com/
-    tags: [software]
+import os
+from datetime import datetime
 
-hooks:
-  - integration-name: Github
-    python-modules:
-      - airflow.providers.github.hooks.github
+from airflow import DAG
+from airflow.providers.amazon.aws.transfers.gcs_to_s3 import GCSToS3Operator
 
-operators:
-  - integration-name: Github
-    python-modules:
-      - airflow.providers.github.operators.github
+BUCKET = os.getenv("BUCKET", "bucket")
+S3_KEY = os.getenv("S3_KEY", "s3://<bucket>/<prefix>")
 
-sensors:
-  - integration-name: Github
-    python-modules:
-      - airflow.providers.github.sensors.github
-
-connection-types:
-  - hook-class-name: airflow.providers.github.hooks.github.GithubHook
-    connection-type: github
+with DAG(
+    dag_id="example_gcs_to_s3",
+    schedule_interval=None,
+    start_date=datetime(2021, 1, 1),
+    tags=["example"],
+    catchup=False,
+) as dag:
+    # [START howto_transfer_gcs_to_s3]
+    gcs_to_s3 = GCSToS3Operator(
+        task_id="gcs_to_s3",
+        bucket=BUCKET,
+        dest_s3_key=S3_KEY,
+        replace=True,
+    )
+    # [END howto_transfer_gcs_to_s3]
