@@ -177,7 +177,13 @@ def cleanup(verbose: bool, dry_run: bool, github_repository: str, all: bool, ans
     given_answer = user_confirm("Are you sure with the removal?")
     if given_answer == Answer.YES:
         system_prune_command_to_execute = ['docker', 'system', 'prune']
-        run_command(system_prune_command_to_execute, verbose=verbose, dry_run=dry_run, check=False)
+        run_command(
+            system_prune_command_to_execute,
+            verbose=verbose,
+            dry_run=dry_run,
+            check=False,
+            enabled_output_group=True,
+        )
     elif given_answer == Answer.QUIT:
         sys.exit(0)
     get_console().print(f"Removing build cache dir ${BUILD_CACHE_DIR}")
@@ -294,7 +300,7 @@ def setup_autocomplete(verbose: bool, dry_run: bool, force: bool, answer: Option
 
 @option_verbose
 @main.command()
-def version(verbose: bool, python: str):
+def version(verbose: bool):
     """Print information about version of apache-airflow-breeze."""
 
     get_console().print(ASCIIART, style=ASCIIART_STYLE)
@@ -437,11 +443,12 @@ def command_hash_export(verbose: bool, output: IO):
 
 
 @main.command(name="fix-ownership", help="Fix ownership of source files to be same as host user.")
+@option_github_repository
 @option_verbose
 @option_dry_run
-def fix_ownership(verbose: bool, dry_run: bool):
+def fix_ownership(github_repository: str, verbose: bool, dry_run: bool):
     perform_environment_checks(verbose=verbose)
-    shell_params = find_available_ci_image(dry_run, verbose)
+    shell_params = find_available_ci_image(github_repository, dry_run, verbose)
     extra_docker_flags = get_extra_docker_flags(MOUNT_ALL)
     env = get_env_variables_for_docker_commands(shell_params)
     cmd = [
@@ -454,7 +461,9 @@ def fix_ownership(verbose: bool, dry_run: bool):
         shell_params.airflow_image_name_with_tag,
         "/opt/airflow/scripts/in_container/run_fix_ownership.sh",
     ]
-    run_command(cmd, verbose=verbose, dry_run=dry_run, text=True, env=env, check=False)
+    run_command(
+        cmd, verbose=verbose, dry_run=dry_run, text=True, env=env, check=False, enabled_output_group=True
+    )
     # Always succeed
     sys.exit(0)
 
