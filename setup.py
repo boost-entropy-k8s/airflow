@@ -309,8 +309,8 @@ exasol = ['pyexasol>=0.5.1', pandas_requirement]
 facebook = [
     'facebook-business>=6.0.2',
 ]
-flask_appbuilder_authlib = [
-    'authlib',
+flask_appbuilder_oauth = [
+    'flask-appbuilder[oauth]',
 ]
 github = [
     'pygithub',
@@ -463,7 +463,7 @@ opsgenie = [
     'opsgenie-sdk>=2.1.5',
 ]
 oracle = [
-    'cx_Oracle>=5.1.2',
+    'oracledb>=1.0.0',
 ]
 pagerduty = [
     'pdpyras>=4.1.2',
@@ -491,9 +491,7 @@ postgres = [
     'psycopg2-binary>=2.7.4',
 ]
 presto = [
-    # The limit to Presto 0.8 for unknown reason
-    # TODO: Remove the limit
-    'presto-python-client>=0.7.0,<0.8',
+    'presto-python-client>=0.8.2',
     pandas_requirement,
 ]
 psrp = [
@@ -539,7 +537,6 @@ spark = [
 ]
 ssh = [
     'paramiko>=2.6.0',
-    'pysftp>=0.2.9',
     'sshtunnel>=0.3.2',
 ]
 statsd = [
@@ -635,16 +632,13 @@ devel_only = [
     'jira',
     'jsondiff',
     'mongomock',
-    # Version 3.1.10 is breaking main bump to 3.1.11 when released.
-    # Fix already merged but was not released https://github.com/spulec/moto/pull/5165
-    'moto[glue]>=3.1.6, <3.1.10',
+    'moto[cloudformation, glue]>=3.1.12',
     'parameterized',
     'paramiko',
     'pipdeptree',
     'pre-commit',
     'pypsrp',
     'pygithub',
-    'pysftp',
     # Pytest 7 has been released in February 2022 and we should attempt to upgrade and remove the limit
     # It contains a number of potential breaking changes but none of them looks breaking our use
     # https://docs.pytest.org/en/latest/changelog.html#pytest-7-0-0-2022-02-03
@@ -771,8 +765,8 @@ CORE_EXTRAS_REQUIREMENTS: Dict[str, List[str]] = {
     'cncf.kubernetes': kubernetes,  # also has provider, but it extends the core with the KubernetesExecutor
     'dask': dask,
     'deprecated_api': deprecated_api,
-    'github_enterprise': flask_appbuilder_authlib,
-    'google_auth': flask_appbuilder_authlib,
+    'github_enterprise': flask_appbuilder_oauth,
+    'google_auth': flask_appbuilder_oauth,
     'kerberos': kerberos,
     'ldap': ldap,
     'leveldb': leveldb,

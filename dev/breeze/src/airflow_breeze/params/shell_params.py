@@ -32,8 +32,9 @@ from airflow_breeze.global_constants import (
     ALLOWED_PYTHON_MAJOR_MINOR_VERSIONS,
     AVAILABLE_INTEGRATIONS,
     MOUNT_ALL,
-    MOUNT_NONE,
+    MOUNT_REMOVE,
     MOUNT_SELECTED,
+    MOUNT_SKIP,
     get_airflow_version,
 )
 from airflow_breeze.utils.console import get_console
@@ -48,6 +49,7 @@ class ShellParams:
     """
 
     airflow_branch: str = AIRFLOW_BRANCH
+    default_constraints_branch: str = DEFAULT_AIRFLOW_CONSTRAINTS_BRANCH
     airflow_constraints_reference: str = DEFAULT_AIRFLOW_CONSTRAINTS_BRANCH
     airflow_extras: str = ""
     answer: Optional[str] = None
@@ -63,7 +65,8 @@ class ShellParams:
     github_actions: str = os.environ.get('GITHUB_ACTIONS', "false")
     github_repository: str = "apache/airflow"
     github_token: str = os.environ.get('GITHUB_TOKEN', "")
-    image_tag: str = "latest"
+    image_tag: Optional[str] = None
+    include_mypy_volume: bool = False
     install_airflow_version: str = ""
     install_providers_from_sources: bool = True
     integration: Tuple[str, ...] = ()
@@ -185,10 +188,13 @@ class ShellParams:
             backend_files = []
             for backend in ALLOWED_BACKENDS:
                 backend_files.extend(self.get_backend_compose_files(backend))
+            compose_ci_file.append(f"{str(SCRIPTS_CI_DIR)}/docker-compose/backend-mssql-bind-volume.yml")
+            compose_ci_file.append(f"{str(SCRIPTS_CI_DIR)}/docker-compose/backend-mssql-docker-volume.yml")
         local_docker_compose_file = f"{str(SCRIPTS_CI_DIR)}/docker-compose/local.yml"
         local_all_sources_docker_compose_file = f"{str(SCRIPTS_CI_DIR)}/docker-compose/local-all-sources.yml"
         files_docker_compose_file = f"{str(SCRIPTS_CI_DIR)}/docker-compose/files.yml"
         remove_sources_docker_compose_file = f"{str(SCRIPTS_CI_DIR)}/docker-compose/remove-sources.yml"
+        mypy_docker_compose_file = f"{str(SCRIPTS_CI_DIR)}/docker-compose/mypy.yml"
         forward_credentials_docker_compose_file = (
             f"{str(SCRIPTS_CI_DIR)}/docker-compose/forward-credentials.yml"
         )
@@ -203,16 +209,30 @@ class ShellParams:
                 )
         compose_ci_file.extend([main_ci_docker_compose_file, *backend_files, files_docker_compose_file])
 
+        if self.image_tag is not None and self.image_tag != "latest":
+            get_console().print(
+                f"[warning]Running tagged image tag = {self.image_tag}. "
+                f"Forcing mounted sources to be 'skip'[/]"
+            )
+            self.mount_sources = MOUNT_SKIP
+        if self.use_airflow_version is not None:
+            get_console().print(
+                "[info]Forcing --mount-sources to `remove` since we are not installing airflow "
+                f"from sources but from {self.use_airflow_version}[/]"
+            )
+            self.mount_sources = MOUNT_REMOVE
         if self.mount_sources == MOUNT_SELECTED:
             compose_ci_file.extend([local_docker_compose_file])
         elif self.mount_sources == MOUNT_ALL:
             compose_ci_file.extend([local_all_sources_docker_compose_file])
-        else:  # none
+        elif self.mount_sources == MOUNT_REMOVE:
             compose_ci_file.extend([remove_sources_docker_compose_file])
         if self.forward_credentials:
             compose_ci_file.append(forward_credentials_docker_compose_file)
         if self.use_airflow_version is not None:
             compose_ci_file.append(remove_sources_docker_compose_file)
+        if self.include_mypy_volume:
+            compose_ci_file.append(mypy_docker_compose_file)
         if "all" in self.integration:
             integrations = AVAILABLE_INTEGRATIONS
         else:
@@ -220,7 +240,7 @@ class ShellParams:
         if len(integrations) > 0:
             for integration in integrations:
                 compose_ci_file.append(f"{str(SCRIPTS_CI_DIR)}/docker-compose/integration-{integration}.yml")
-        return ':'.join(compose_ci_file)
+        return os.pathsep.join(compose_ci_file)
 
     @property
     def command_passed(self):
@@ -228,11 +248,3 @@ class ShellParams:
         if len(self.extra_args) > 0:
             cmd = str(self.extra_args[0])
         return cmd
-
-    def __post_init__(self):
-        if self.use_airflow_version is not None:
-            get_console().print(
-                "[info]Forcing --mount-sources to `none` since we are not installing airflow "
-                f"from sources but from {self.use_airflow_version}[/]"
-            )
-            self.mount_sources = MOUNT_NONE

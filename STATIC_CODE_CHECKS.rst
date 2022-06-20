@@ -161,6 +161,8 @@ require Breeze Docker image to be build locally.
 +--------------------------------------------------------+------------------------------------------------------------------+---------+
 | check-docstring-param-types                            | Check that docstrings do not specify param types                 |         |
 +--------------------------------------------------------+------------------------------------------------------------------+---------+
+| check-example-dags-urls                                | Check that example dags url include provider versions            |         |
++--------------------------------------------------------+------------------------------------------------------------------+---------+
 | check-executables-have-shebangs                        | Check that executables have shebang                              |         |
 +--------------------------------------------------------+------------------------------------------------------------------+---------+
 | check-extra-packages-references                        | Checks setup extra packages                                      |         |
@@ -207,9 +209,13 @@ require Breeze Docker image to be build locally.
 +--------------------------------------------------------+------------------------------------------------------------------+---------+
 | check-system-tests-present                             | Check if system tests have required segments of code             |         |
 +--------------------------------------------------------+------------------------------------------------------------------+---------+
+| check-system-tests-tocs                                | Check that system tests is properly added                        |         |
++--------------------------------------------------------+------------------------------------------------------------------+---------+
 | check-xml                                              | Check XML files with xmllint                                     |         |
 +--------------------------------------------------------+------------------------------------------------------------------+---------+
 | codespell                                              | Run codespell to check for common misspellings in files          |         |
++--------------------------------------------------------+------------------------------------------------------------------+---------+
+| create-missing-init-py-files-tests                     | Create missing init.py files in tests                            |         |
 +--------------------------------------------------------+------------------------------------------------------------------+---------+
 | debug-statements                                       | Detect accidentally committed debug statements                   |         |
 +--------------------------------------------------------+------------------------------------------------------------------+---------+
@@ -413,23 +419,23 @@ Run the ``flake8`` check for the ``tests.core`` package with verbose output:
 
      breeze static-checks --type run-flake8 --file tests/core/* --verbose
 
-Run all tests for the currently staged files:
+Run all checks for the currently staged files:
 
 .. code-block:: bash
 
      breeze static-checks --type all
 
-Run all tests for all files:
+Run all checks for all files:
 
 .. code-block:: bash
 
     breeze static-checks --type all --all-files
 
-Run all tests for last commit :
+Run all checks for last commit :
 
 .. code-block:: bash
 
-     breeze static-checks -type all --last-commit
+     breeze static-checks --type all --last-commit
 
 Debugging pre-commit check scripts requiring image
 --------------------------------------------------
