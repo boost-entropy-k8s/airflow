@@ -14,40 +14,31 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-import unittest
 from datetime import datetime
 
-from parameterized import parameterized
+import pytest
 
 from airflow.callbacks.callback_requests import (
-    CallbackRequest,
     DagCallbackRequest,
-    SlaCallbackRequest,
     TaskCallbackRequest,
 )
 from airflow.models.dag import DAG
-from airflow.models.taskinstance import SimpleTaskInstance, TaskInstance
-from airflow.operators.bash import BashOperator
+from airflow.models.taskinstance import TaskInstance
+from airflow.providers.standard.operators.bash import BashOperator
+from airflow.utils import timezone
 from airflow.utils.state import State
 
-TI = TaskInstance(
-    task=BashOperator(task_id="test", bash_command="true", dag=DAG(dag_id='id'), start_date=datetime.now()),
-    run_id="fake_run",
-    state=State.RUNNING,
-)
+pytestmark = pytest.mark.db_test
 
 
-class TestCallbackRequest(unittest.TestCase):
-    @parameterized.expand(
+class TestCallbackRequest:
+    @pytest.mark.parametrize(
+        "input,request_class",
         [
-            (CallbackRequest(full_filepath="filepath", msg="task_failure"), CallbackRequest),
             (
-                TaskCallbackRequest(
-                    full_filepath="filepath",
-                    simple_task_instance=SimpleTaskInstance.from_ti(ti=TI),
-                    is_failure_callback=True,
-                ),
+                None,  # to be generated when test is run
                 TaskCallbackRequest,
             ),
             (
@@ -59,12 +50,39 @@ class TestCallbackRequest(unittest.TestCase):
                 ),
                 DagCallbackRequest,
             ),
-            (SlaCallbackRequest(full_filepath="filepath", dag_id="fake_dag"), SlaCallbackRequest),
-        ]
+        ],
     )
     def test_from_json(self, input, request_class):
+        if input is None:
+            ti = TaskInstance(
+                task=BashOperator(
+                    task_id="test",
+                    bash_command="true",
+                    start_date=datetime.now(),
+                    dag=DAG(dag_id="id", schedule=None),
+                ),
+                run_id="fake_run",
+                state=State.RUNNING,
+            )
+
+            input = TaskCallbackRequest(
+                full_filepath="filepath",
+                ti=ti,
+            )
         json_str = input.to_json()
+        result = request_class.from_json(json_str)
+        assert result == input
 
-        result = request_class.from_json(json_str=json_str)
-
-        self.assertEqual(result, input)
+    def test_taskcallback_to_json_with_start_date_and_end_date(self, session, create_task_instance):
+        ti = create_task_instance()
+        ti.start_date = timezone.utcnow()
+        ti.end_date = timezone.utcnow()
+        session.merge(ti)
+        session.flush()
+        input = TaskCallbackRequest(
+            full_filepath="filepath",
+            ti=ti,
+        )
+        json_str = input.to_json()
+        result = TaskCallbackRequest.from_json(json_str)
+        assert input == result

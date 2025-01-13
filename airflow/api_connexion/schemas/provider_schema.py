@@ -14,12 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from typing import List, NamedTuple
+from typing import NamedTuple, TypedDict
 
 from marshmallow import Schema, fields
-
-from airflow.typing_compat import TypedDict
 
 
 class ProviderSchema(Schema):
@@ -41,7 +40,7 @@ class Provider(TypedDict):
 class ProviderCollection(NamedTuple):
     """List of Providers."""
 
-    providers: List[Provider]
+    providers: list[Provider]
     total_entries: int
 
 
