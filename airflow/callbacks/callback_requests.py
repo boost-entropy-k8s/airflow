@@ -14,112 +14,76 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-import json
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Annotated, Literal, Union
+
+from pydantic import BaseModel, Field
+
+from airflow.api_fastapi.execution_api.datamodels import taskinstance as ti_datamodel  # noqa: TC001
+from airflow.utils.state import TaskInstanceState
 
 if TYPE_CHECKING:
-    from airflow.models.taskinstance import SimpleTaskInstance
+    from airflow.typing_compat import Self
 
 
-class CallbackRequest:
+class BaseCallbackRequest(BaseModel):
     """
     Base Class with information about the callback to be executed.
 
-    :param full_filepath: File Path to use to run the callback
     :param msg: Additional Message that can be used for logging
     """
 
-    def __init__(self, full_filepath: str, msg: Optional[str] = None):
-        self.full_filepath = full_filepath
-        self.msg = msg
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        return NotImplemented
-
-    def __repr__(self):
-        return str(self.__dict__)
-
-    def to_json(self) -> str:
-        return json.dumps(self.__dict__)
+    full_filepath: str
+    """File Path to use to run the callback"""
+    msg: str | None = None
+    """Additional Message that can be used for logging to determine failure/zombie"""
 
     @classmethod
-    def from_json(cls, json_str: str):
-        json_object = json.loads(json_str)
-        return cls(**json_object)
+    def from_json(cls, data: str | bytes | bytearray) -> Self:
+        return cls.model_validate_json(data)
+
+    def to_json(self, **kwargs) -> str:
+        return self.model_dump_json(**kwargs)
 
 
-class TaskCallbackRequest(CallbackRequest):
+class TaskCallbackRequest(BaseCallbackRequest):
     """
+    Task callback status information.
+
     A Class with information about the success/failure TI callback to be executed. Currently, only failure
     callbacks (when tasks are externally killed) and Zombies are run via DagFileProcessorProcess.
-
-    :param full_filepath: File Path to use to run the callback
-    :param simple_task_instance: Simplified Task Instance representation
-    :param is_failure_callback: Flag to determine whether it is a Failure Callback or Success Callback
-    :param msg: Additional Message that can be used for logging to determine failure/zombie
     """
 
-    def __init__(
-        self,
-        full_filepath: str,
-        simple_task_instance: "SimpleTaskInstance",
-        is_failure_callback: Optional[bool] = True,
-        msg: Optional[str] = None,
-    ):
-        super().__init__(full_filepath=full_filepath, msg=msg)
-        self.simple_task_instance = simple_task_instance
-        self.is_failure_callback = is_failure_callback
+    ti: ti_datamodel.TaskInstance
+    """Simplified Task Instance representation"""
+    task_callback_type: TaskInstanceState | None = None
+    """Whether on success, on failure, on retry"""
+    type: Literal["TaskCallbackRequest"] = "TaskCallbackRequest"
 
-    def to_json(self) -> str:
-        dict_obj = self.__dict__.copy()
-        dict_obj["simple_task_instance"] = dict_obj["simple_task_instance"].__dict__
-        return json.dumps(dict_obj)
-
-    @classmethod
-    def from_json(cls, json_str: str):
-        from airflow.models.taskinstance import SimpleTaskInstance
-
-        kwargs = json.loads(json_str)
-        simple_ti = SimpleTaskInstance.from_dict(obj_dict=kwargs.pop("simple_task_instance"))
-        return cls(simple_task_instance=simple_ti, **kwargs)
+    @property
+    def is_failure_callback(self) -> bool:
+        """Returns True if the callback is a failure callback."""
+        if self.task_callback_type is None:
+            return True
+        return self.task_callback_type in {
+            TaskInstanceState.FAILED,
+            TaskInstanceState.UP_FOR_RETRY,
+            TaskInstanceState.UPSTREAM_FAILED,
+        }
 
 
-class DagCallbackRequest(CallbackRequest):
-    """
-    A Class with information about the success/failure DAG callback to be executed.
+class DagCallbackRequest(BaseCallbackRequest):
+    """A Class with information about the success/failure DAG callback to be executed."""
 
-    :param full_filepath: File Path to use to run the callback
-    :param dag_id: DAG ID
-    :param run_id: Run ID for the DagRun
-    :param is_failure_callback: Flag to determine whether it is a Failure Callback or Success Callback
-    :param msg: Additional Message that can be used for logging
-    """
-
-    def __init__(
-        self,
-        full_filepath: str,
-        dag_id: str,
-        run_id: str,
-        is_failure_callback: Optional[bool] = True,
-        msg: Optional[str] = None,
-    ):
-        super().__init__(full_filepath=full_filepath, msg=msg)
-        self.dag_id = dag_id
-        self.run_id = run_id
-        self.is_failure_callback = is_failure_callback
+    dag_id: str
+    run_id: str
+    is_failure_callback: bool | None = True
+    """Flag to determine whether it is a Failure Callback or Success Callback"""
+    type: Literal["DagCallbackRequest"] = "DagCallbackRequest"
 
 
-class SlaCallbackRequest(CallbackRequest):
-    """
-    A class with information about the SLA callback to be executed.
-
-    :param full_filepath: File Path to use to run the callback
-    :param dag_id: DAG ID
-    """
-
-    def __init__(self, full_filepath: str, dag_id: str, msg: Optional[str] = None):
-        super().__init__(full_filepath, msg)
-        self.dag_id = dag_id
+CallbackRequest = Annotated[
+    Union[DagCallbackRequest, TaskCallbackRequest],
+    Field(discriminator="type"),
+]

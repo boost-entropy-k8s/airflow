@@ -14,8 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-# content of conftest.py
+import pytest
+
+from airflow_breeze.utils.functools_cache import clear_all_cached_functions
+
+
 def pytest_configure(config):
     import sys
 
@@ -26,3 +31,8 @@ def pytest_unconfigure(config):
     import sys  # This was missing from the manual
 
     del sys._called_from_test
+
+
+@pytest.fixture(autouse=True)
+def clear_clearable_cache():
+    clear_all_cached_functions()
